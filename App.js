@@ -1,34 +1,54 @@
 import { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, Button } from 'react-native';
+import { StyleSheet, Text, View, Button, ActivityIndicator, TextInput} from 'react-native';
 
 export default function App() {
 // criar um estado para armazenar o valor do cep
   const [cep, setCep] = useState([]);
+  const [loading, setLoading] = useState (false);
 
-  const Cep = (x) => {
-    let url = `https://viacep.com.br/ws/${x}/json/`;
+  const BuscaCep = async (argCep) => {
+    setLoading(true);
+    const url = `https://viacep.com.br/ws/${argCep}/json/`;
     fetch(url)
-    .then((response) => response.json())
+    .then(resp => resp.json())
     .then((data) => {
-      //console.log(data);
-        console.log(data);
-        setCep(data);
-        console.log(cep.logradouro);
-    }).catch((error) => {
-        console.error('Error:', error);
-    });
-
-  }
-
+        console.log(data)
+        setCep(data)
+      })
+    .catch((error) => { console.log ("?" + error) } 
+    )
+    setLoading(false);
+    }
 
   return (
     <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
+      
       <Button  
-        title="Buscar CEP"
-        onPress={() => Cep('18185033')} />
-      <StatusBar style="auto" />
+        title="CEP"
+        onPress={() => {BuscaCep ('18162002')}} 
+        />
+        {loading && <ActivityIndicator size = "large" color= "blue"/>}
+
+        {
+          cep.cep != null && (
+            <View>
+
+              <TextInput 
+                value = {cep.logradouro}
+                style = {{borderColor : 'gray', borderWidth:1, height:40}}
+                onChangeText= { text =>{ setCep({...cep, logradouro : text})}}
+              />
+              
+              
+              <Text> endereço : {cep.logradouro} </Text>
+              <Text> bairro : {cep.bairro} </Text>
+              <Text> cidade : {cep.localidade} </Text>
+              <Text> estado : {cep.estado} </Text>
+            </View>
+          )
+        }
+      
     </View>
   );
 }
