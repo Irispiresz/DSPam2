@@ -1,102 +1,101 @@
-import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, Button, ActivityIndicator, TextInput, Alert } from 'react-native';
+import { StyleSheet, Text, View, TextInput, Button, FlatList } from 'react-native';
+import {
+  Banco, createTable, insertUsuario, selectUsuarios, deleteUsuario
+} from './Banco/Config';
+
+import { useEffect, useState } from 'react';
 
 export default function App() {
-  const [cep, setCep] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [inputCep, setInputCep] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
 
-  const BuscaCep = async (argCep) => {
-    setErrorMessage('');
+  const [db, setDb] = useState(null);
+  const [nome, setNome] = useState('');
+  const [email, setEmail] = useState('');
+  const [usuarios, setUsuarios] = useState([]);
 
-    if (!argCep) {
-      const msg = 'Digite um CEP.';
-      setErrorMessage(msg);
-      Alert.alert('CEP inválido', msg);
-      return;
+  useEffect(() => {
+    async function init() {
+      const database = await Banco();
+      setDb(database);
+      await createTable(database);
+      carregarUsuarios(database);
     }
+    init();
+  }, []);
 
-    const clean = String(argCep).replace(/\D/g, '');
-    if (clean.length !== 8) {
-      const msg = 'Digite um CEP com 8 números.';
-      setErrorMessage(msg);
-      Alert.alert('CEP inválido', msg);
-      return;
-    }
+  async function carregarUsuarios(database = db) {
+    const lista = await selectUsuarios(database);
+    setUsuarios(lista);
+  }
 
-    setLoading(true);
-    setCep({});
-    try {
-      const url = `https://viacep.com.br/ws/${clean}/json/`;
-      const resp = await fetch(url);
-      const data = await resp.json();
+  async function adicionar() {
+    if (!nome || !email) return;
 
-      if (data.erro) {
-        const msg = 'CEP não encontrado.';
-        setErrorMessage(msg);
-        Alert.alert('CEP não encontrado', 'Digite um CEP válido.');
-        setCep({});
-      } else {
-        setCep(data);
-        setErrorMessage('');
-      }
-    } catch (error) {
-      const msg = 'Não foi possível buscar o CEP. Verifique a conexão.';
-      setErrorMessage(msg);
-      Alert.alert('Erro', msg);
-      console.log(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    await insertUsuario(db, nome, email);
+    setNome('');
+    setEmail('');
+    carregarUsuarios();
+  }
+
+  async function remover(id) {
+    await deleteUsuario(db, id);
+    carregarUsuarios();
+  }
 
   return (
     <View style={styles.container}>
-  
-    <Text style={{ fontSize: 25, marginBottom: 10,fontWeight: 'bold' }}>Digite seu cep abaixo:</Text>
+
+      <Text style={styles.titulo}>CRUD de Usuários</Text>
 
       <TextInput
-        placeholder="Digite o CEP"
-        value={inputCep}
-        onChangeText={setInputCep}
-        maxLength={8}
-        style={{ borderColor: 'gray', borderWidth: 1, height: 40,
-           width: 200, marginBottom: 10, paddingHorizontal: 8 }}
-        keyboardType="numeric"
+        placeholder="Nome"
+        value={nome}
+        onChangeText={setNome}
+        style={styles.input}
       />
 
-      {errorMessage ? (
-        <Text style={{ color: 'red', marginBottom: 8 }}>{errorMessage}</Text>
-      ) : null}
-
-      <Button
-      color={'purple'}
-        title="Buscar CEP"
-        onPress={() => BuscaCep(inputCep)}
+      <TextInput
+        placeholder="Email"
+        value={email}
+        onChangeText={setEmail}
+        style={styles.input}
       />
 
-      {loading && <ActivityIndicator size="large" color="purple" />}
+      <Button title="Adicionar" onPress={adicionar} />
 
-      {cep.cep && (
-        <View style={{ marginTop: 20 }}>
-          <Text>CEP: {cep.cep}</Text>
-          <Text>Endereço: {cep.logradouro}</Text>
-          <Text>Bairro: {cep.bairro}</Text>
-          <Text>Cidade: {cep.localidade}</Text>
-          <Text>Estado: {cep.uf}</Text>
-        </View>
-      )}
+      <FlatList
+        data={usuarios}
+        keyExtractor={(item) => item.ID_US.toString()}
+        renderItem={({ item }) => (
+          <View style={styles.item}>
+            <Text>{item.NOME_US} - {item.EMAIL_US}</Text>
+            <Button title="Excluir" onPress={() => remover(item.id)} />
+          </View>
+        )}
+      />
+
+      <StatusBar style="auto" />
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 20,
+    marginTop: 40
   },
+  titulo: {
+    fontSize: 22,
+    marginBottom: 10
+  },
+  input: {
+    borderWidth: 1,
+    marginBottom: 10,
+    padding: 8
+  },
+  item: {
+    marginTop: 10,
+    padding: 10,
+    borderWidth: 1
+  }
 });
