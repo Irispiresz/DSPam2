@@ -1,101 +1,137 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TextInput, Button, FlatList } from 'react-native';
 import {
-  Banco, createTable, insertUsuario, selectUsuarios, deleteUsuario
-} from './Banco/Config';
+  StyleSheet,
+  Text,
+  View,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  Alert,
+} from 'react-native';
 
 import { useEffect, useState } from 'react';
 
-export default function App() {
+import {
+  createTable,
+  insertCantor,
+  selectCantores,
+  deleteCantor,
+  updateCantor,
+} from './Banco/Conf';
 
-  const [db, setDb] = useState(null);
+export default function App() {
   const [nome, setNome] = useState('');
-  const [email, setEmail] = useState('');
-  const [usuarios, setUsuarios] = useState([]);
+  const [genero, setGenero] = useState('');
+  const [cantores, setCantores] = useState([]);
+
+  const [editando, setEditando] = useState(false);
+  const [idEditando, setIdEditando] = useState(null);
 
   useEffect(() => {
-    async function init() {
-      const database = await Banco();
-      setDb(database);
-      await createTable(database);
-      carregarUsuarios(database);
-    }
-    init();
+    createTable();
+    carregar();
   }, []);
 
-  async function carregarUsuarios(database = db) {
-    const lista = await selectUsuarios(database);
-    setUsuarios(lista);
+  async function carregar() {
+    const data = await selectCantores();
+    setCantores(data);
   }
 
-  async function adicionar() {
-    if (!nome || !email) return;
+  async function salvar() {
+    if (!nome || !genero) return;
 
-    await insertUsuario(db, nome, email);
+    if (editando) {
+      await updateCantor(idEditando, nome, genero);
+      setEditando(false);
+      setIdEditando(null);
+    } else {
+      await insertCantor(nome, genero);
+    }
+
     setNome('');
-    setEmail('');
-    carregarUsuarios();
+    setGenero('');
+    carregar();
+  }
+
+  function editar(item) {
+    setNome(item.NOME);
+    setGenero(item.GENERO);
+    setIdEditando(item.ID);
+    setEditando(true);
   }
 
   async function remover(id) {
-    await deleteUsuario(db, id);
-    carregarUsuarios();
+    await deleteCantor(id);
+    carregar();
   }
 
   return (
     <View style={styles.container}>
+      <StatusBar style="light" />
 
-      <Text style={styles.titulo}>CRUD de Usuários</Text>
+      <Text style={styles.title}>🎤 Music CRUD</Text>
 
-      <TextInput
-        placeholder="Nome"
-        value={nome}
-        onChangeText={setNome}
-        style={styles.input}
-      />
+      <Text style={styles.subtitle}>
+        Gerencie seus cantores favoritos
+      </Text>
 
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        style={styles.input}
-      />
+      {/* FORM */}
+      <View style={styles.card}>
+        <TextInput
+          placeholder="Nome do cantor"
+          placeholderTextColor="#aaa"
+          value={nome}
+          onChangeText={setNome}
+          style={styles.input}
+        />
 
-      <Button title="Adicionar" onPress={adicionar} />
+        <TextInput
+          placeholder="Gênero musical"
+          placeholderTextColor="#aaa"
+          value={genero}
+          onChangeText={setGenero}
+          style={styles.input}
+        />
 
+        <TouchableOpacity
+          style={styles.button}
+          onPress={salvar}
+        >
+          <Text style={styles.buttonText}>
+            {editando ? 'Salvar edição' : 'Adicionar cantor'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* LISTA */}
       <FlatList
-        data={usuarios}
-        keyExtractor={(item) => item.ID_US.toString()}
+        data={cantores}
+        keyExtractor={(item) => item.ID.toString()}
         renderItem={({ item }) => (
           <View style={styles.item}>
-            <Text>{item.NOME_US} - {item.EMAIL_US}</Text>
-            <Button title="Excluir" onPress={() => remover(item.id)} />
+            <View>
+              <Text style={styles.name}>🎵 {item.NOME}</Text>
+              <Text style={styles.genre}>{item.GENERO}</Text>
+            </View>
+
+            <View style={styles.actions}>
+              <TouchableOpacity
+                style={styles.editBtn}
+                onPress={() => editar(item)}
+              >
+                <Text style={styles.btnText}>✎</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.deleteBtn}
+                onPress={() => remover(item.ID)}
+              >
+                <Text style={styles.btnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       />
-
-      <StatusBar style="auto" />
     </View>
   );
 }
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    marginTop: 40
-  },
-  titulo: {
-    fontSize: 22,
-    marginBottom: 10
-  },
-  input: {
-    borderWidth: 1,
-    marginBottom: 10,
-    padding: 8
-  },
-  item: {
-    marginTop: 10,
-    padding: 10,
-    borderWidth: 1
-  }
-});
